@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Tracker Reparto Croma</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #1a1a2e;
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      text-align: center;
+    }
+    h1 { font-size: 22px; margin-bottom: 6px; margin-top: 8px; }
+    .sub { font-size: 13px; color: #aaa; margin-bottom: 20px; }
+
+    #estado {
+      background: #0f3460;
+      border-radius: 16px;
+      padding: 18px 24px;
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 16px;
+    }
+    .dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      display: inline-block; margin-right: 8px;
+      background: #555;
+    }
+    .dot.verde { background: #4caf50; animation: pulso 1.5s infinite; }
+    .dot.rojo { background: #e63946; }
+    .dot.amarillo { background: #ffc107; }
+
+    @keyframes pulso {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    #texto-estado { font-size: 15px; font-weight: 600; }
+    #coords { font-size: 12px; color: #aaa; margin-top: 10px; min-height: 18px; }
+    #precision { font-size: 11px; color: #666; margin-top: 4px; }
+    #ultima { font-size: 11px; color: #666; margin-top: 4px; }
+
+    .btn-gps {
+      background: #e63946;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 20px;
+    }
+    .btn-gps.detener { background: #555; }
+
+    .seccion-titulo {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #aaa;
+      width: 100%;
+      max-width: 340px;
+      text-align: left;
+      margin-bottom: 8px;
+    }
+
+    .grilla {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 8px;
+    }
+    .grilla button {
+      background: #0f3460;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .grilla button:active { background: #1a4a8a; }
+    .btn-ancho {
+      background: #0f3460;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 8px;
+    }
+    .btn-ancho:active { background: #1a4a8a; }
+    .btn-ancho.ultima { background: #c9820a; }
+    .btn-ancho.ultima:active { background: #a86d08; }
+    .btn-ancho.deposito { background: #1d7a46; }
+    .btn-ancho.deposito:active { background: #155e35; }
+    .btn-volver {
+      background: transparent; color: #8a9bb5;
+      border: 1px solid #2a4a73; border-radius: 10px;
+      padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer;
+      width: 100%; max-width: 340px; margin-bottom: 8px; display: none;
+    }
+    .btn-volver:active { background: #12263f; }
+    .btn-ancho .btn-sub { font-size: 12px; font-weight: 400; opacity: 0.92; margin-top: 3px; }
+
+    #toast {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 13px;
+      display: none;
+      max-width: 90%;
+      z-index: 99;
+    }
+
+    #ruta-box {
+      background: #0f3460; border-radius: 16px;
+      padding: 16px 18px; width: 100%; max-width: 340px;
+      margin-bottom: 16px; text-align: left; display: none;
+    }
+    .ruta-titulo {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 14px; font-weight: 700; margin-bottom: 12px;
+    }
+    .ruta-prog { font-size: 12px; color: #9bb8e0; font-weight: 500; }
+    .t-parada { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+    .t-parada .tdot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; border: 2px solid #2a4a73; background: transparent; }
+    .t-parada.entregado .tdot { background: #4caf50; border-color: #4caf50; }
+    .t-parada.actual .tdot { background: #ffc107; border-color: #ffc107; animation: pulso 1.5s infinite; }
+    .t-parada-nombre { font-size: 14px; }
+    .t-parada.entregado .t-parada-nombre { color: #7fd99a; text-decoration: line-through; }
+    .t-parada.actual .t-parada-nombre { font-weight: 700; color: #fff; }
+    .t-parada.pendiente .t-parada-nombre { color: #8a9bb5; }
+    .t-parada-estado { margin-left: auto; font-size: 11px; font-weight: 700; }
+    .t-parada.actual .t-parada-estado { color: #ffc107; }
+    .t-parada.entregado .t-parada-estado { color: #7fd99a; }
+
+    #respuesta-cmd {
+      background: #0f3460;
+      border-radius: 12px;
+      padding: 14px 16px;
+      width: 100%;
+      max-width: 340px;
+      margin: 8px 0 4px;
+      font-size: 14px;
+      line-height: 1.5;
+      text-align: left;
+      white-space: pre-line;
+      display: none;
+    }
+    #respuesta-cmd .resp-titulo {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+      color: #8fb3e0; margin-bottom: 6px;
+    }
+
+    #log {
+      margin-top: 16px;
+      font-size: 11px;
+      color: #444;
+      max-width: 340px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🚚 Tracker Croma</h1>
+<p class="sub">Mantené esta pantalla abierta mientras repartís</p>
+
+<div id="estado">
+  <div>
+    <span class="dot" id="dot"></span>
+    <span id="texto-estado">Listo para iniciar</span>
+  </div>
+  <div id="coords"></div>
+  <div id="precision"></div>
+  <div id="ultima"></div>
+</div>
+
+<button class="btn-gps" id="btn" onclick="iniciar()">▶ Iniciar tracking</button>
+
+<!-- Progreso de la ruta -->
+<div id="ruta-box">
+  <div class="ruta-titulo">
+    <span id="ruta-nombre">🗺️ Ruta</span>
+    <span class="ruta-prog" id="ruta-prog"></span>
+  </div>
+  <div id="ruta-paradas"></div>
+</div>
+
+<div class="seccion-titulo">Comandos</div>
+
+<div class="grilla">
+  <button onclick="cmd('consulta')">📋 Consulta</button>
+  <button onclick="cmd('estado')">📊 Estado</button>
+  <button onclick="cmd('ruta a')">🗺️ Ruta A</button>
+  <button onclick="cmd('ruta b')">🗺️ Ruta B</button>
+</div>
+<button class="btn-ancho" id="btn-siguiente" onclick="confirmarSiguiente()">➡️ Siguiente parada</button>
+<button class="btn-volver" id="btn-volver" onclick="volverParada()">↩️ Volver una parada</button>
+
+<div id="respuesta-cmd"></div>
+
+<div id="toast"></div>
+<div id="log"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"
+  import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA3_HplHsotmcwcAu3NZTO78aazCHq0VF8",
+    authDomain: "reparto-croma.firebaseapp.com",
+    projectId: "reparto-croma",
+    storageBucket: "reparto-croma.firebasestorage.app",
+    messagingSenderId: "164538274749",
+    appId: "1:164538274749:web:2350d99595c9221a4ff8d4"
+  }
+
+  const app = initializeApp(firebaseConfig)
+  const db = getFirestore(app)
+
+  // Login anónimo: el tracker se identifica solo (sin que el repartidor haga nada).
+  // Sirve para que la base solo acepte escrituras de este tracker, no de cualquiera con la clave.
+  const auth = getAuth(app)
+  signInAnonymously(auth).catch(e => log('Login anónimo falló: ' + e.message))
+
+  let watchId = null
+  let enviados = 0
+  let wakeLock = null
+
+  // Mantener la pantalla encendida mientras rastrea (evita que el tracking se corte al apagarse sola)
+  async function solicitarWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen')
+        log('🔆 Pantalla mantenida encendida')
+      }
+    } catch (e) { log('No se pudo mantener la pantalla: ' + e.message) }
+  }
+  async function liberarWakeLock() {
+    try { if (wakeLock) { await wakeLock.release(); wakeLock = null } } catch (e) {}
+  }
+
+  // Si el repartidor sale de la app y vuelve, reactivar la pantalla y avisar el estado
+  document.addEventListener('visibilitychange', async () => {
+    if (watchId === null) return
+    if (document.visibilityState === 'visible') {
+      await solicitarWakeLock()
+      document.getElementById('dot').className = 'dot verde'
+      document.getElementById('texto-estado').textContent = 'Enviando ubicación...'
+    } else {
+      document.getElementById('dot').className = 'dot amarillo'
+      document.getElementById('texto-estado').textContent = '⚠️ Volvé a esta app para seguir enviando'
+    }
+  })
+
+  function mostrarToast(msg) {
+    const t = document.getElementById('toast')
+    t.textContent = msg
+    t.style.display = 'block'
+    setTimeout(() => t.style.display = 'none', 3000)
+  }
+
+  function log(msg) {
+    const div = document.getElementById('log')
+    const now = new Date().toLocaleTimeString('es-AR')
+    div.innerHTML = `[${now}] ${msg}<br>` + div.innerHTML
+  }
+
+  async function enviarUbicacion(lat, lon, precision) {
+    try {
+      await setDoc(doc(db, 'ubicacion', 'actual'), {
+        lat, lon, precision,
+        timestamp: serverTimestamp()
+      })
+      enviados++
+      document.getElementById('coords').textContent = `📍 ${lat.toFixed(6)}, ${lon.toFixed(6)}`
+      document.getElementById('precision').textContent = `Precisión: ±${Math.round(precision)}m`
+      document.getElementById('ultima').textContent = `Envío #${enviados} · ${new Date().toLocaleTimeString('es-AR')}`
+      document.getElementById('dot').className = 'dot verde'
+      document.getElementById('texto-estado').textContent = 'Enviando ubicación...'
+    } catch (e) {
+      document.getElementById('dot').className = 'dot rojo'
+      document.getElementById('texto-estado').textContent = 'Error al enviar'
+      log('Error Firestore: ' + e.message)
+    }
+  }
+
+  // Registrar el plugin de GPS en segundo plano (solo existe cuando corre como app nativa)
+  let BGGeo = null
+  try {
+    if (window.Capacitor && typeof window.Capacitor.registerPlugin === 'function') {
+      BGGeo = window.Capacitor.registerPlugin('BackgroundGeolocation')
+    }
+  } catch (e) {}
+  function esNativo() {
+    return !!(BGGeo && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())
+  }
+  let bgWatcherId = null   // id del watcher nativo (solo en la app)
+
+  window.iniciar = function() {
+    const btn = document.getElementById('btn')
+
+    // ── DETENER ──
+    if (watchId !== null || bgWatcherId !== null) {
+      if (bgWatcherId !== null) {
+        BGGeo.removeWatcher({ id: bgWatcherId })
+        bgWatcherId = null
+      }
+      if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null }
+      liberarWakeLock()
+      btn.textContent = '▶ Iniciar tracking'
+      btn.className = 'btn-gps'
+      document.getElementById('dot').className = 'dot'
+      document.getElementById('texto-estado').textContent = 'Tracking detenido'
+      return
+    }
+
+    // ── INICIAR ──
+    btn.textContent = '⏹ Detener tracking'
+    btn.className = 'btn-gps detener'
+    document.getElementById('dot').className = 'dot amarillo'
+    document.getElementById('texto-estado').textContent = 'Buscando señal GPS...'
+
+    if (esNativo()) {
+      // App nativa: GPS en SEGUNDO PLANO (pantalla apagada / usando otra app)
+      BGGeo.addWatcher({
+        backgroundMessage: 'Enviando tu ubicación al reparto',
+        backgroundTitle: 'Croma Reparto activo',
+        requestPermissions: true,
+        stale: false,
+        distanceFilter: 10
+      }, (location, error) => {
+        if (error) {
+          if (error.code === 'NOT_AUTHORIZED' && BGGeo.openSettings) BGGeo.openSettings()
+          document.getElementById('dot').className = 'dot rojo'
+          document.getElementById('texto-estado').textContent = 'Error GPS: ' + (error.message || error.code || '')
+          log('Error GPS nativo: ' + JSON.stringify(error))
+          return
+        }
+        if (location) enviarUbicacion(location.latitude, location.longitude, location.accuracy)
+      }).then(id => { bgWatcherId = id })
+    } else {
+      // Web (navegador): GPS mientras la app esté adelante
+      if (!navigator.geolocation) { alert('Tu navegador no soporta GPS'); return }
+      solicitarWakeLock()
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => enviarUbicacion(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+        (err) => {
+          document.getElementById('dot').className = 'dot rojo'
+          document.getElementById('texto-estado').textContent = 'Error GPS: ' + err.message
+          log('Error GPS: ' + err.message)
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      )
+    }
+  }
+
+  // Muestra la respuesta del bot en el recuadro fijo (no se borra solo)
+  function mostrarRespuesta(titulo, texto) {
+    const div = document.getElementById('respuesta-cmd')
+    div.innerHTML = `<div class="resp-titulo">${titulo}</div>` + texto
+    div.style.display = 'block'
+  }
+
+  window.cmd = async function(comando) {
+    // Mandar el comando por la nube (Firestore) — funciona desde cualquier lado, no solo en casa
+    const id = Date.now().toString()
+    try {
+      await setDoc(doc(db, 'comandos', 'pendiente'), { cmd: comando, id })
+      mostrarRespuesta(comando, '⏳ Enviando...')
+      esperarRespuesta(id)
+      // Refrescar el progreso de ruta enseguida (el bot lo publica en segundos)
+      setTimeout(actualizarRutaTracker, 2500)
+      setTimeout(actualizarRutaTracker, 6000)
+    } catch (e) {
+      mostrarRespuesta(comando, '❌ No se pudo enviar el comando')
+      log('Error enviando comando: ' + e.message)
+    }
+  }
+
+  // Estado de la ruta que ve el tracker (para armar el mensaje de confirmación)
+  let rutaLocal = { paradas: [], actual: 0, activa: false }
+
+  // Pide confirmación antes de avanzar (evita el toque sin querer)
+  window.confirmarSiguiente = function() {
+    let msg = '¿Avanzar a la próxima parada?\n\nLe avisa al próximo local que ya vas.'
+    if (rutaLocal.activa) {
+      const n = rutaLocal.paradas.length
+      if (rutaLocal.actual >= n - 1) msg = '¿Confirmás que llegaste al depósito?\n\nSe termina la ruta.'
+      else if (rutaLocal.actual === n - 2) msg = '¿Terminaste la última entrega?\n\nEl bot avisa que volvés al depósito.'
+    }
+    if (confirm(msg)) cmd('siguiente')
+  }
+
+  // Corrige un avance accidental
+  window.volverParada = function() {
+    if (confirm('¿Volver una parada?\n\nCorrige el avance. Ojo: el WhatsApp que ya se le mandó al local no se puede deshacer.')) cmd('atras')
+  }
+
+  // Actualiza el texto/color del botón según en qué parada estamos
+  // Escapa texto para meterlo seguro en el botón (los nombres vienen de la config)
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+  }
+
+  function actualizarBotonSiguiente() {
+    const btn = document.getElementById('btn-siguiente')
+    const volver = document.getElementById('btn-volver')
+    if (!btn) return
+    if (!rutaLocal.activa) {
+      btn.className = 'btn-ancho'
+      btn.innerHTML = '➡️ Siguiente parada'
+      volver.style.display = 'none'
+      return
+    }
+    const paradas = rutaLocal.paradas
+    const n = paradas.length
+    const a = rutaLocal.actual
+    const prox = paradas[a + 1]   // a dónde te lleva apretar el botón
+    if (a >= n - 1) {            // ya estás en el Depósito → no hay próximo
+      btn.className = 'btn-ancho deposito'
+      btn.innerHTML = '🏠 Llegué al depósito'
+    } else if (a === n - 2) {    // última tienda: lo próximo es volver al depósito
+      btn.className = 'btn-ancho ultima'
+      btn.innerHTML = '🏁 Última parada<div class="btn-sub">→ Volver al ' + esc(prox) + '</div>'
+    } else {                     // parada normal
+      btn.className = 'btn-ancho'
+      btn.innerHTML = '➡️ Siguiente parada<div class="btn-sub">→ ' + esc(prox) + '</div>'
+    }
+    volver.style.display = a > 0 ? 'block' : 'none'
+  }
+
+  // ── Progreso de la ruta (lo publica el bot en la nube) ───────────
+  async function actualizarRutaTracker() {
+    try {
+      const snap = await getDoc(doc(db, 'estado', 'ruta'))
+      const box = document.getElementById('ruta-box')
+      if (!snap.exists() || !snap.data().activa) {
+        box.style.display = 'none'
+        rutaLocal = { paradas: [], actual: 0, activa: false }
+        actualizarBotonSiguiente()
+        return
+      }
+      const d = snap.data()
+      const paradas = d.paradas || []
+      const actual = typeof d.paradaActual === 'number' ? d.paradaActual : 0
+      rutaLocal = { paradas, actual, activa: true }
+      actualizarBotonSiguiente()
+      box.style.display = 'block'
+      document.getElementById('ruta-nombre').textContent = '🗺️ ' + (d.ruta || 'Ruta')
+      document.getElementById('ruta-prog').textContent =
+        `Parada ${Math.min(actual + 1, paradas.length)} de ${paradas.length}`
+      document.getElementById('ruta-paradas').innerHTML = paradas.map((p, i) => {
+        const e = i < actual ? 'entregado' : i === actual ? 'actual' : 'pendiente'
+        const etiqueta = e === 'entregado' ? '✓ entregado' : e === 'actual' ? '📍 acá vas' : ''
+        return `<div class="t-parada ${e}"><div class="tdot"></div><div class="t-parada-nombre">${p}</div><div class="t-parada-estado">${etiqueta}</div></div>`
+      }).join('')
+    } catch (e) {}
+  }
+  setInterval(actualizarRutaTracker, 12000)
+  actualizarRutaTracker()
+
+  // Espera la respuesta del bot (hasta ~10s) y la muestra en el recuadro fijo
+  async function esperarRespuesta(id) {
+    for (let i = 0; i < 12; i++) {
+      await new Promise(r => setTimeout(r, 1500))
+      try {
+        const snap = await getDoc(doc(db, 'comandos', 'respuesta'))
+        if (snap.exists() && snap.data().id === id) {
+          mostrarRespuesta('Respuesta', snap.data().msg)
+          return
+        }
+      } catch (e) {}
+    }
+    mostrarRespuesta('Respuesta', '⚠️ El bot no respondió. ¿Está prendido?')
+  }
+</script>
+</body>
+</html>
